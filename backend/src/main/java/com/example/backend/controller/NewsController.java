@@ -11,7 +11,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/news")
-@CrossOrigin(origins = {"http://localhost:5173", "http://localhost:3000"})
+@CrossOrigin(origins = { "http://localhost:5173", "http://localhost:3000" })
 public class NewsController {
 
     private final NewsRepository newsRepository;
@@ -38,14 +38,13 @@ public class NewsController {
                 request.getTitle(),
                 request.getContent(),
                 request.getPublishedAt() != null ? request.getPublishedAt() : LocalDateTime.now(),
-                request.getCategory()
-        );
+                request.getCategory());
         News saved = newsRepository.save(news);
         return ResponseEntity.ok(saved);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<News> updateNews(@PathVariable Long id, @RequestBody NewsRequest request) {
+    public ResponseEntity<News> updateNews(@PathVariable @NonNull Long id, @RequestBody NewsRequest request) {
         return newsRepository.findById(id)
                 .map(news -> {
                     news.setTitle(request.getTitle());
@@ -61,7 +60,7 @@ public class NewsController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteNews(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteNews(@PathVariable @NonNull Long id) {
         if (newsRepository.existsById(id)) {
             newsRepository.deleteById(id);
             return ResponseEntity.noContent().build();

@@ -4,6 +4,7 @@ import com.example.backend.entity.Order;
 import com.example.backend.entity.Order.OrderStatus;
 import com.example.backend.repository.OrderRepository;
 import org.springframework.http.ResponseEntity;
+import org.springframework.lang.NonNull;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -34,7 +35,7 @@ public class OrderController {
      * 注文詳細を取得
      */
     @GetMapping("/{id}")
-    public ResponseEntity<Order> getOrderById(@PathVariable Long id) {
+    public ResponseEntity<Order> getOrderById(@PathVariable @NonNull Long id) {
         return orderRepository.findById(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
@@ -78,7 +79,7 @@ public class OrderController {
      */
     @PutMapping("/{id}/status")
     public ResponseEntity<Map<String, Object>> updateOrderStatus(
-            @PathVariable Long id,
+            @PathVariable @NonNull Long id,
             @RequestBody StatusUpdateRequest request) {
 
         Map<String, Object> response = new HashMap<>();

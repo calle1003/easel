@@ -4,6 +4,7 @@ import com.example.backend.entity.Performance;
 import com.example.backend.entity.Performance.SaleStatus;
 import com.example.backend.repository.PerformanceRepository;
 import org.springframework.http.ResponseEntity;
+import org.springframework.lang.NonNull;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -35,7 +36,7 @@ public class PerformanceController {
      * 公演詳細を取得
      */
     @GetMapping("/{id}")
-    public ResponseEntity<Performance> getPerformanceById(@PathVariable Long id) {
+    public ResponseEntity<Performance> getPerformanceById(@PathVariable @NonNull Long id) {
         return performanceRepository.findById(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
@@ -74,7 +75,7 @@ public class PerformanceController {
      * 公演の残席情報を取得
      */
     @GetMapping("/{id}/availability")
-    public ResponseEntity<Map<String, Object>> getAvailability(@PathVariable Long id) {
+    public ResponseEntity<Map<String, Object>> getAvailability(@PathVariable @NonNull Long id) {
         return performanceRepository.findById(id)
                 .map(performance -> {
                     Map<String, Object> availability = new HashMap<>();
@@ -92,7 +93,7 @@ public class PerformanceController {
      * 公演を作成（管理者用）
      */
     @PostMapping
-    public ResponseEntity<Performance> createPerformance(@RequestBody Performance performance) {
+    public ResponseEntity<Performance> createPerformance(@RequestBody @NonNull Performance performance) {
         Performance saved = performanceRepository.save(performance);
         return ResponseEntity.ok(saved);
     }
@@ -102,7 +103,7 @@ public class PerformanceController {
      */
     @PutMapping("/{id}")
     public ResponseEntity<Performance> updatePerformance(
-            @PathVariable Long id,
+            @PathVariable @NonNull Long id,
             @RequestBody Performance performanceData) {
 
         return performanceRepository.findById(id)
@@ -136,7 +137,7 @@ public class PerformanceController {
      */
     @PutMapping("/{id}/sale-status")
     public ResponseEntity<Map<String, Object>> updateSaleStatus(
-            @PathVariable Long id,
+            @PathVariable @NonNull Long id,
             @RequestBody SaleStatusRequest request) {
 
         Map<String, Object> response = new HashMap<>();
@@ -168,7 +169,7 @@ public class PerformanceController {
      * 公演を削除（管理者用）
      */
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deletePerformance(@PathVariable Long id) {
+    public ResponseEntity<Void> deletePerformance(@PathVariable @NonNull Long id) {
         if (performanceRepository.existsById(id)) {
             performanceRepository.deleteById(id);
             return ResponseEntity.noContent().build();
