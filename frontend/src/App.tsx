@@ -37,11 +37,21 @@ import Cancel from './pages/ticket/Cancel';
 import NewsList from './pages/news/List';
 import NewsDetail from './pages/news/Detail';
 
+// admin
+import Login from './pages/admin/Login';
+import AdminLayout from './pages/admin/AdminLayout';
+import Dashboard from './pages/admin/Dashboard';
+import NewsAdmin from './pages/admin/NewsAdmin';
+import PerformancesAdmin from './pages/admin/PerformancesAdmin';
+import ExchangeCodesAdmin from './pages/admin/ExchangeCodesAdmin';
+import OrdersAdmin from './pages/admin/OrdersAdmin';
+
 function App() {
   return (
     <BrowserRouter>
       <ScrollToTop />
       <Routes>
+        {/* Public Routes with Layout */}
         <Route element={<Layout />}>
           {/* Top */}
           <Route path="/" element={<Top />} />
@@ -74,6 +84,16 @@ function App() {
           {/* Contact */}
           <Route path="/contact" element={<Contact />} />
         </Route>
+
+        {/* Admin Login (no auth required) */}
+        <Route path="/admin/login" element={<Login />} />
+
+        {/* Admin Routes (auth required) */}
+        <Route path="/admin" element={<AdminLayout><Dashboard /></AdminLayout>} />
+        <Route path="/admin/news" element={<AdminLayout><NewsAdmin /></AdminLayout>} />
+        <Route path="/admin/performances" element={<AdminLayout><PerformancesAdmin /></AdminLayout>} />
+        <Route path="/admin/exchange-codes" element={<AdminLayout><ExchangeCodesAdmin /></AdminLayout>} />
+        <Route path="/admin/orders" element={<AdminLayout><OrdersAdmin /></AdminLayout>} />
       </Routes>
     </BrowserRouter>
   );

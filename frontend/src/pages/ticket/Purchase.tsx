@@ -1,16 +1,27 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Minus, Plus, X } from 'lucide-react';
+import { Minus, Plus, X, AlertCircle, CheckCircle } from 'lucide-react';
 
-// 公演日時のオプション
-const dateOptions = [
-  { value: '2025-01-01-14', label: '2025年1月1日（水） 14:00' },
-  { value: '2025-01-01-18', label: '2025年1月1日（水） 18:00' },
-  { value: '2025-01-02-14', label: '2025年1月2日（木） 14:00' },
-];
+// 公演情報の型定義
+interface Performance {
+  id: number;
+  title: string;
+  volume: string;
+  performanceDate: string;
+  performanceTime: string;
+  doorsOpenTime: string;
+  venueName: string;
+  generalPrice: number;
+  reservedPrice: number;
+  generalRemaining: number;
+  reservedRemaining: number;
+  onSale: boolean;
+  soldOut: boolean;
+}
 
 // 注文データの型定義
 export interface OrderData {
+  performanceId: number;
   date: string;
   dateLabel: string;
   hasExchangeCode: boolean;
@@ -27,6 +38,14 @@ export interface OrderData {
   phone: string;
 }
 
+// 引換券バリデーション結果の型
+interface CodeValidationResult {
+  code: string;
+  valid: boolean;
+  message: string;
+  performerName?: string;
+}
+
 export default function Purchase() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -34,64 +53,114 @@ export default function Purchase() {
   // 確認画面から戻ってきた場合、前回の入力内容を復元
   const previousData = location.state as OrderData | null;
 
+  // 公演情報
+  const [performances, setPerformances] = useState<Performance[]>([]);
+  const [selectedPerformance, setSelectedPerformance] = useState<Performance | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // 引換券コード
   const [hasExchangeCode, setHasExchangeCode] = useState<boolean | null>(
     previousData?.hasExchangeCode ?? null
   );
   const [exchangeCodes, setExchangeCodes] = useState<string[]>(
     previousData?.exchangeCodes ?? ['']
   );
+  const [codeValidations, setCodeValidations] = useState<CodeValidationResult[]>([]);
+  const [validatingCodes, setValidatingCodes] = useState(false);
+
+  // チケット枚数
   const [generalQuantity, setGeneralQuantity] = useState(
     previousData?.generalQuantity ?? 0
   );
   const [reservedQuantity, setReservedQuantity] = useState(
     previousData?.reservedQuantity ?? 0
   );
+
+  // 顧客情報
   const [formData, setFormData] = useState({
     name: previousData?.name ?? '',
     email: previousData?.email ?? '',
     phone: previousData?.phone ?? '',
-    date: previousData?.date ?? '',
+    performanceId: previousData?.performanceId?.toString() ?? '',
   });
 
-  const generalPrice = 4500; // 一般席（自由席）
-  const reservedPrice = 5500; // 指定席
+  // 公演情報を取得
+  useEffect(() => {
+    const fetchPerformances = async () => {
+      try {
+        const response = await fetch('/api/performances/on-sale');
+        if (!response.ok) {
+          throw new Error('公演情報の取得に失敗しました');
+        }
+        const data = await response.json();
+        setPerformances(data);
 
-  // 有効な引換券コードの数（空でないもの）
-  const validCodeCount = exchangeCodes.filter(
-    (code) => code.trim() !== ''
-  ).length;
+        // 前回選択した公演を復元
+        if (previousData?.performanceId) {
+          const prev = data.find((p: Performance) => p.id === previousData.performanceId);
+          if (prev) {
+            setSelectedPerformance(prev);
+            setFormData((f) => ({ ...f, performanceId: prev.id.toString() }));
+          }
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : '公演情報の取得に失敗しました');
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  // 引換券で割引される一般席の枚数（コード数を上限とする）
+    fetchPerformances();
+  }, [previousData?.performanceId]);
+
+  // 価格情報（選択した公演から取得、未選択時はデフォルト）
+  const generalPrice = selectedPerformance?.generalPrice ?? 4500;
+  const reservedPrice = selectedPerformance?.reservedPrice ?? 5500;
+
+  // 有効な引換券コードの数
+  const validCodeCount = codeValidations.filter((v) => v.valid).length;
+
+  // 引換券で割引される一般席の枚数
   const discountedGeneralCount = hasExchangeCode
     ? Math.min(validCodeCount, generalQuantity)
     : 0;
 
   // 合計金額を計算
-  const generalTotal =
-    (generalQuantity - discountedGeneralCount) * generalPrice;
+  const generalTotal = (generalQuantity - discountedGeneralCount) * generalPrice;
   const reservedTotal = reservedQuantity * reservedPrice;
   const total = generalTotal + reservedTotal;
 
   // 割引額
   const discountAmount = discountedGeneralCount * generalPrice;
 
-  const handleQuantityChange = (
-    type: 'general' | 'reserved',
-    delta: number
-  ) => {
-    if (type === 'general') {
-      setGeneralQuantity((prev) => Math.max(0, Math.min(10, prev + delta)));
+  // 公演選択時の処理
+  const handlePerformanceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const id = e.target.value;
+    setFormData((prev) => ({ ...prev, performanceId: id }));
+
+    if (id) {
+      const perf = performances.find((p) => p.id === parseInt(id));
+      setSelectedPerformance(perf || null);
     } else {
-      setReservedQuantity((prev) => Math.max(0, Math.min(10, prev + delta)));
+      setSelectedPerformance(null);
     }
   };
 
-  // 電話番号を自動フォーマット（携帯電話番号の場合のみ）
-  // 携帯電話: 090-1234-5678 (3-4-4形式)
+  const handleQuantityChange = (type: 'general' | 'reserved', delta: number) => {
+    if (type === 'general') {
+      const max = selectedPerformance?.generalRemaining ?? 10;
+      setGeneralQuantity((prev) => Math.max(0, Math.min(max, prev + delta)));
+    } else {
+      const max = selectedPerformance?.reservedRemaining ?? 10;
+      setReservedQuantity((prev) => Math.max(0, Math.min(max, prev + delta)));
+    }
+  };
+
+  // 電話番号を自動フォーマット
   const formatPhoneNumber = (value: string): string => {
     const digits = value.replace(/\D/g, '');
 
-    // 携帯電話番号（070/080/090）の場合のみフォーマット
     if (/^0[789]0/.test(digits)) {
       if (digits.length <= 3) {
         return digits;
@@ -103,7 +172,6 @@ export default function Purchase() {
       return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7, 11)}`;
     }
 
-    // 携帯電話番号でない場合はそのまま（ハイフンは手動入力）
     return value;
   };
 
@@ -123,9 +191,11 @@ export default function Purchase() {
   const handleCodeChange = (index: number, value: string) => {
     setExchangeCodes((prev) => {
       const newCodes = [...prev];
-      newCodes[index] = value;
+      newCodes[index] = value.toUpperCase();
       return newCodes;
     });
+    // バリデーション結果をクリア
+    setCodeValidations([]);
   };
 
   const addCodeField = () => {
@@ -137,21 +207,63 @@ export default function Purchase() {
   const removeCodeField = (index: number) => {
     if (exchangeCodes.length > 1) {
       setExchangeCodes((prev) => prev.filter((_, i) => i !== index));
+      setCodeValidations([]);
     }
   };
 
+  // 引換券コードをバリデーション
+  const validateExchangeCodes = async () => {
+    const nonEmptyCodes = exchangeCodes.filter((code) => code.trim() !== '');
+    if (nonEmptyCodes.length === 0) {
+      setCodeValidations([]);
+      return;
+    }
+
+    setValidatingCodes(true);
+    try {
+      const response = await fetch('/api/exchange-codes/validate-batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codes: nonEmptyCodes }),
+      });
+
+      if (!response.ok) {
+        throw new Error('バリデーションに失敗しました');
+      }
+
+      const data = await response.json();
+      setCodeValidations(data.results);
+    } catch (err) {
+      console.error('Code validation error:', err);
+    } finally {
+      setValidatingCodes(false);
+    }
+  };
+
+  // コードが変更されたらバリデーション
+  useEffect(() => {
+    if (hasExchangeCode && exchangeCodes.some((code) => code.trim() !== '')) {
+      const timer = setTimeout(() => {
+        validateExchangeCodes();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [exchangeCodes, hasExchangeCode]);
+
   const totalQuantity = generalQuantity + reservedQuantity;
 
-  // 引換券コードのバリデーション（「あり」の場合、すべての入力欄に値が必要）
+  // 引換券コードのバリデーション
   const isExchangeCodeValid =
     hasExchangeCode === false ||
     (hasExchangeCode === true &&
       exchangeCodes.length > 0 &&
-      exchangeCodes.every((code) => code.trim() !== ''));
+      exchangeCodes.every((code) => code.trim() !== '') &&
+      codeValidations.length > 0 &&
+      codeValidations.every((v) => v.valid));
 
   // フォーム全体のバリデーション
   const isFormValid =
-    formData.date &&
+    formData.performanceId &&
     formData.name &&
     formData.email &&
     formData.phone &&
@@ -159,18 +271,28 @@ export default function Purchase() {
     isExchangeCodeValid &&
     totalQuantity > 0;
 
+  // 公演日時のラベルを生成
+  const formatPerformanceLabel = (perf: Performance): string => {
+    const date = new Date(perf.performanceDate);
+    const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
+    const weekday = weekdays[date.getDay()];
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    const time = perf.performanceTime.slice(0, 5);
+    return `${year}年${month}月${day}日（${weekday}） ${time}`;
+  };
+
   // 確認画面へ遷移
   const handleSubmit = () => {
-    if (!isFormValid) return;
-
-    const dateLabel =
-      dateOptions.find((opt) => opt.value === formData.date)?.label ?? '';
+    if (!isFormValid || !selectedPerformance) return;
 
     const orderData: OrderData = {
-      date: formData.date,
-      dateLabel,
+      performanceId: selectedPerformance.id,
+      date: `${selectedPerformance.performanceDate}-${selectedPerformance.performanceTime.slice(0, 2)}`,
+      dateLabel: formatPerformanceLabel(selectedPerformance),
       hasExchangeCode: hasExchangeCode!,
-      exchangeCodes: hasExchangeCode ? exchangeCodes : [],
+      exchangeCodes: hasExchangeCode ? exchangeCodes.filter((c) => c.trim() !== '') : [],
       generalQuantity,
       reservedQuantity,
       generalPrice,
@@ -185,6 +307,30 @@ export default function Purchase() {
 
     navigate('/easel-live/vol2/ticket/confirm', { state: orderData });
   };
+
+  // コードのバリデーション結果を取得
+  const getCodeValidation = (code: string): CodeValidationResult | undefined => {
+    return codeValidations.find((v) => v.code.toUpperCase() === code.toUpperCase());
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-300" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <AlertCircle className="mx-auto h-12 w-12 text-red-400 mb-4" />
+          <p className="text-slate-600">{error}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white">
@@ -220,18 +366,27 @@ export default function Purchase() {
                 公演日時 <span className="text-red-400">*</span>
               </h2>
               <select
-                name="date"
-                value={formData.date}
-                onChange={handleInputChange}
+                name="performanceId"
+                value={formData.performanceId}
+                onChange={handlePerformanceChange}
                 className="w-full p-4 border border-slate-200 rounded-lg bg-white text-slate-700 focus:outline-none focus:border-slate-400 transition-colors"
               >
                 <option value="">公演日時を選択してください</option>
-                {dateOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
+                {performances.map((perf) => (
+                  <option key={perf.id} value={perf.id} disabled={perf.soldOut}>
+                    {formatPerformanceLabel(perf)}
+                    {perf.soldOut && ' (SOLD OUT)'}
                   </option>
                 ))}
               </select>
+              {selectedPerformance && (
+                <div className="mt-3 text-sm text-slate-500">
+                  <p>会場: {selectedPerformance.venueName}</p>
+                  <p className="mt-1">
+                    残席: 一般席 {selectedPerformance.generalRemaining}枚 / 指定席 {selectedPerformance.reservedRemaining}枚
+                  </p>
+                </div>
+              )}
             </section>
 
             {/* Exchange Code Section */}
@@ -251,6 +406,7 @@ export default function Purchase() {
                       onChange={() => {
                         setHasExchangeCode(false);
                         setExchangeCodes(['']);
+                        setCodeValidations([]);
                       }}
                       className="w-4 h-4 text-slate-600 border-slate-300 focus:ring-slate-500"
                     />
@@ -279,27 +435,55 @@ export default function Purchase() {
                         ※引換券1枚につき一般席1枚分が無料になります。
                       </span>
                     </p>
-                    {exchangeCodes.map((code, index) => (
-                      <div key={index} className="flex gap-3">
-                        <input
-                          type="text"
-                          value={code}
-                          onChange={(e) => handleCodeChange(index, e.target.value)}
-                          placeholder={`引換券コード ${index + 1}`}
-                          required
-                          className="flex-1 p-4 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-400 transition-colors"
-                        />
-                        {exchangeCodes.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => removeCodeField(index)}
-                            className="p-4 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
-                          >
-                            <X size={16} className="text-slate-400" />
-                          </button>
-                        )}
-                      </div>
-                    ))}
+                    {exchangeCodes.map((code, index) => {
+                      const validation = getCodeValidation(code);
+                      return (
+                        <div key={index}>
+                          <div className="flex gap-3">
+                            <div className="relative flex-1">
+                              <input
+                                type="text"
+                                value={code}
+                                onChange={(e) => handleCodeChange(index, e.target.value)}
+                                placeholder={`引換券コード ${index + 1}`}
+                                required
+                                className={`w-full p-4 border rounded-lg focus:outline-none transition-colors ${
+                                  validation
+                                    ? validation.valid
+                                      ? 'border-green-300 bg-green-50'
+                                      : 'border-red-300 bg-red-50'
+                                    : 'border-slate-200'
+                                }`}
+                              />
+                              {validation && (
+                                <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                                  {validation.valid ? (
+                                    <CheckCircle size={20} className="text-green-500" />
+                                  ) : (
+                                    <AlertCircle size={20} className="text-red-500" />
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                            {exchangeCodes.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => removeCodeField(index)}
+                                className="p-4 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+                              >
+                                <X size={16} className="text-slate-400" />
+                              </button>
+                            )}
+                          </div>
+                          {validation && (
+                            <p className={`mt-1 text-sm ${validation.valid ? 'text-green-600' : 'text-red-500'}`}>
+                              {validation.message}
+                              {validation.performerName && ` (${validation.performerName})`}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
                     <button
                       type="button"
                       onClick={addCodeField}
@@ -308,6 +492,9 @@ export default function Purchase() {
                       <Plus size={16} />
                       <span>コードを追加</span>
                     </button>
+                    {validatingCodes && (
+                      <p className="text-sm text-slate-400">コードを確認中...</p>
+                    )}
                   </div>
                 )}
               </div>

@@ -14,6 +14,8 @@ export default function Confirm() {
   }
 
   const {
+    performanceId,
+    date,
     dateLabel,
     hasExchangeCode,
     exchangeCodes,
@@ -44,9 +46,19 @@ export default function Confirm() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          // 公演情報
+          date,
+          dateLabel,
+          // チケット情報
           generalQuantity,
           reservedQuantity,
           discountedGeneralCount,
+          // 引換券コード
+          exchangeCodes: hasExchangeCode ? exchangeCodes : [],
+          // 顧客情報
+          name,
+          email,
+          phone,
         }),
       });
 
@@ -233,6 +245,13 @@ export default function Confirm() {
             <p className="text-center text-sm text-slate-400">
               ※決済はStripeによる安全なクレジットカード決済です
             </p>
+            <button
+              type="button"
+              onClick={handleBack}
+              className="w-full py-4 text-center text-slate-500 hover:text-slate-700 transition-colors"
+            >
+              ← 入力画面に戻る
+            </button>
           </div>
         </div>
       </div>
