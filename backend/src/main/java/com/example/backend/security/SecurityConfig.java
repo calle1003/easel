@@ -33,12 +33,14 @@ public class SecurityConfig {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .sessionManagement(session ->
-                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         // 公開API（認証不要）
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/webhook/**").permitAll()
+                        .requestMatchers("/api/qrcode/**").permitAll()
+                        .requestMatchers("/api/test/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/orders/by-session/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/news/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/performances/**").permitAll()
                         .requestMatchers("/api/payment/checkout").permitAll()
@@ -47,6 +49,7 @@ public class SecurityConfig {
 
                         // 管理者API（認証必要）
                         .requestMatchers("/api/orders/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
+                        .requestMatchers("/api/tickets/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/news/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/news/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/news/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
@@ -55,12 +58,12 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/performances/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/exchange-codes").hasAnyRole("ADMIN", "SUPER_ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/exchange-codes").hasAnyRole("ADMIN", "SUPER_ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/api/exchange-codes/batch").hasAnyRole("ADMIN", "SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/exchange-codes/batch")
+                        .hasAnyRole("ADMIN", "SUPER_ADMIN")
                         .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
 
                         // その他は認証不要
-                        .anyRequest().permitAll()
-                )
+                        .anyRequest().permitAll())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
@@ -85,5 +88,3 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 }
-
-

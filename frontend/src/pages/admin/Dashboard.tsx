@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Newspaper, Calendar, Ticket, ShoppingCart, TrendingUp, LogOut, User } from 'lucide-react';
+import { Newspaper, Calendar, Ticket, ShoppingCart, TrendingUp, LogOut, User, Scan } from 'lucide-react';
 import { adminFetch, logout, getCurrentUser } from '../../utils/adminApi';
 
 interface Stats {
@@ -36,6 +36,14 @@ export default function Dashboard() {
   }, []);
 
   const menuItems = [
+    {
+      title: '入場チェック',
+      description: 'QRコードスキャンで入場処理',
+      icon: Scan,
+      path: '/admin/check-in',
+      color: 'bg-red-500',
+      featured: true,
+    },
     {
       title: 'ニュース管理',
       description: 'ニュース記事の作成・編集・削除',
@@ -134,13 +142,20 @@ export default function Dashboard() {
             <Link
               key={item.path}
               to={item.path}
-              className="bg-white p-6 rounded-lg border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all flex items-start gap-4"
+              className={`bg-white p-6 rounded-lg border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all flex items-start gap-4 ${
+                item.featured ? 'md:col-span-2 border-red-200 bg-red-50' : ''
+              }`}
             >
               <div className={`${item.color} p-3 rounded-lg`}>
                 <item.icon size={24} className="text-white" />
               </div>
               <div>
-                <h3 className="font-medium text-slate-800">{item.title}</h3>
+                <h3 className="font-medium text-slate-800 flex items-center gap-2">
+                  {item.title}
+                  {item.featured && (
+                    <span className="text-xs px-2 py-0.5 bg-red-500 text-white rounded">NEW</span>
+                  )}
+                </h3>
                 <p className="text-sm text-slate-500 mt-1">{item.description}</p>
               </div>
             </Link>

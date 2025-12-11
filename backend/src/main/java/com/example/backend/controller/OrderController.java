@@ -52,6 +52,20 @@ public class OrderController {
     }
 
     /**
+     * Stripe Session IDで注文を検索（チケット情報含む）
+     * フロントエンド用: /api/orders/by-session/{sessionId}
+     */
+    @GetMapping("/by-session/{sessionId}")
+    public ResponseEntity<Order> getOrderWithTicketsBySessionId(@PathVariable String sessionId) {
+        return orderRepository.findByStripeSessionId(sessionId)
+                .map(order -> {
+                    // チケット情報は自動的にロードされる（@OneToMany）
+                    return ResponseEntity.ok(order);
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    /**
      * ステータスで注文を検索
      */
     @GetMapping("/status/{status}")

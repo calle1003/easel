@@ -84,6 +84,7 @@ public class EmailTestController {
      * POST /api/test/email/resend/{orderId}
      */
     @PostMapping("/resend/{orderId}")
+    @SuppressWarnings("null")
     public ResponseEntity<Map<String, Object>> resendOrderEmail(@PathVariable Long orderId) {
         Optional<Order> orderOpt = orderRepository.findById(orderId);
         

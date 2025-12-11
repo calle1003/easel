@@ -45,6 +45,7 @@ import NewsAdmin from './pages/admin/NewsAdmin';
 import PerformancesAdmin from './pages/admin/PerformancesAdmin';
 import ExchangeCodesAdmin from './pages/admin/ExchangeCodesAdmin';
 import TicketsAdmin from './pages/admin/TicketsAdmin';
+import CheckIn from './pages/admin/CheckIn';
 
 function App() {
   return (
@@ -90,10 +91,14 @@ function App() {
 
         {/* Admin Routes (auth required) */}
         <Route path="/admin" element={<AdminLayout><Dashboard /></AdminLayout>} />
+        <Route path="/admin/dashboard" element={<AdminLayout><Dashboard /></AdminLayout>} />
         <Route path="/admin/news" element={<AdminLayout><NewsAdmin /></AdminLayout>} />
         <Route path="/admin/performances" element={<AdminLayout><PerformancesAdmin /></AdminLayout>} />
         <Route path="/admin/exchange-codes" element={<AdminLayout><ExchangeCodesAdmin /></AdminLayout>} />
         <Route path="/admin/tickets" element={<AdminLayout><TicketsAdmin /></AdminLayout>} />
+        
+        {/* Check-in (standalone, no layout) */}
+        <Route path="/admin/check-in" element={<CheckIn />} />
       </Routes>
     </BrowserRouter>
   );

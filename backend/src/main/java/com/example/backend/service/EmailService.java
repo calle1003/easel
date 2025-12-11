@@ -2,8 +2,10 @@ package com.example.backend.service;
 
 import com.example.backend.entity.Order;
 import com.example.backend.entity.Ticket;
+import jakarta.activation.DataSource;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
+import jakarta.mail.util.ByteArrayDataSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -13,7 +15,9 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -27,6 +31,7 @@ public class EmailService {
     private static final Logger logger = LoggerFactory.getLogger(EmailService.class);
 
     private final JavaMailSender mailSender;
+    private final QRCodeService qrCodeService;
 
     @Value("${spring.mail.username}")
     private String fromEmail;
@@ -37,8 +42,9 @@ public class EmailService {
     @Value("${app.frontend.url:http://localhost:5173}")
     private String frontendUrl;
 
-    public EmailService(JavaMailSender mailSender) {
+    public EmailService(JavaMailSender mailSender, QRCodeService qrCodeService) {
         this.mailSender = mailSender;
+        this.qrCodeService = qrCodeService;
     }
 
     // ============================================
@@ -49,6 +55,7 @@ public class EmailService {
      * 購入完了メールを送信
      */
     @Async
+    @SuppressWarnings("null")
     public void sendPurchaseConfirmationEmail(Order order, List<Ticket> tickets) {
         if (order == null || order.getCustomerEmail() == null) {
             logger.warn("Cannot send email: order or customer email is null");
@@ -68,7 +75,27 @@ public class EmailService {
             helper.setFrom(fromEmail, senderName);
             helper.setTo(order.getCustomerEmail());
             helper.setSubject("【easel】チケット購入完了のお知らせ");
-            helper.setText(buildPurchaseConfirmationHtml(order, tickets), true);
+            
+            // QRコード画像を生成してCIDマップを作成
+            Map<String, String> qrCodeCidMap = new HashMap<>();
+            for (Ticket ticket : tickets) {
+                try {
+                    byte[] qrCodeImage = qrCodeService.generateQRCodeImageForEmail(ticket.getTicketCode());
+                    if (qrCodeImage != null) {
+                        String cid = "qr_" + ticket.getId();
+                        qrCodeCidMap.put(ticket.getTicketCode(), cid);
+                        
+                        // インライン画像として添付
+                        DataSource dataSource = new ByteArrayDataSource(qrCodeImage, "image/png");
+                        helper.addInline(cid, dataSource);
+                    }
+                } catch (Exception e) {
+                    logger.warn("Failed to generate QR code for ticket {}: {}", 
+                            ticket.getTicketCode(), e.getMessage());
+                }
+            }
+            
+            helper.setText(buildPurchaseConfirmationHtml(order, tickets, qrCodeCidMap), true);
 
             mailSender.send(message);
             logger.info("Purchase confirmation email sent to: {}", order.getCustomerEmail());
@@ -85,7 +112,7 @@ public class EmailService {
     /**
      * 購入完了メールのHTML本文を生成
      */
-    private String buildPurchaseConfirmationHtml(Order order, List<Ticket> tickets) {
+    private String buildPurchaseConfirmationHtml(Order order, List<Ticket> tickets, Map<String, String> qrCodeCidMap) {
         DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy年M月d日 HH:mm");
         
         // チケット種別ごとに分類
@@ -99,10 +126,10 @@ public class EmailService {
         StringBuilder ticketHtml = new StringBuilder();
 
         if (!generalTickets.isEmpty()) {
-            ticketHtml.append(buildTicketSection("一般席（自由席）", generalTickets));
+            ticketHtml.append(buildTicketSection("一般席（自由席）", generalTickets, qrCodeCidMap));
         }
         if (!reservedTickets.isEmpty()) {
-            ticketHtml.append(buildTicketSection("指定席", reservedTickets));
+            ticketHtml.append(buildTicketSection("指定席", reservedTickets, qrCodeCidMap));
         }
 
         return """
@@ -201,18 +228,31 @@ public class EmailService {
             background: #f8fafc;
             border: 1px solid #e2e8f0;
             border-radius: 8px;
-            padding: 12px 16px;
-            margin-bottom: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+        .qr-code-container {
+            text-align: center;
+            margin: 16px 0;
+        }
+        .qr-code-image {
+            width: 160px;
+            height: 160px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 8px;
+            background: white;
         }
         .ticket-code {
             font-family: 'SF Mono', Monaco, 'Courier New', monospace;
-            font-size: 13px;
-            color: #1e293b;
+            font-size: 11px;
+            color: #64748b;
             background: #ffffff;
             padding: 8px 12px;
             border-radius: 4px;
             border: 1px dashed #cbd5e1;
             word-break: break-all;
+            text-align: center;
         }
         .ticket-badge {
             display: inline-block;
@@ -364,7 +404,7 @@ public class EmailService {
     /**
      * チケットセクションのHTMLを生成
      */
-    private String buildTicketSection(String sectionTitle, List<Ticket> tickets) {
+    private String buildTicketSection(String sectionTitle, List<Ticket> tickets, Map<String, String> qrCodeCidMap) {
         StringBuilder sb = new StringBuilder();
         sb.append("<div class=\"ticket-section\">");
         sb.append("<h3>").append(sectionTitle).append(" (").append(tickets.size()).append("枚)</h3>");
@@ -376,13 +416,27 @@ public class EmailService {
                     ? "一般席" : "指定席";
             
             sb.append("<div class=\"ticket-card\">");
+            
+            // バッジ
+            sb.append("<div style=\"margin-bottom: 12px;\">");
             sb.append("<span class=\"ticket-badge ").append(badgeClass).append("\">")
               .append(badgeText).append("</span>");
-            
             if (ticket.isExchanged()) {
                 sb.append("<span class=\"ticket-badge badge-exchanged\">引換券使用</span>");
             }
+            sb.append("</div>");
             
+            // QRコード画像を表示
+            String cid = qrCodeCidMap.get(ticket.getTicketCode());
+            if (cid != null) {
+                sb.append("<div class=\"qr-code-container\">");
+                sb.append("<img src=\"cid:").append(cid).append("\" ")
+                  .append("alt=\"QRコード\" ")
+                  .append("class=\"qr-code-image\" />");
+                sb.append("</div>");
+            }
+            
+            // チケットコード（テキスト）
             sb.append("<div class=\"ticket-code\">").append(ticket.getTicketCode()).append("</div>");
             sb.append("</div>");
         }

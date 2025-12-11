@@ -456,17 +456,18 @@ export default function TicketsAdmin() {
                                     <Ticket size={14} />
                                     発行済みチケット ({order.tickets.length}枚)
                                   </h4>
-                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                     {order.tickets.map((ticket) => (
                                       <div 
                                         key={ticket.id}
-                                        className={`p-3 rounded-lg border ${
+                                        className={`p-4 rounded-lg border ${
                                           ticket.isUsed 
                                             ? 'bg-slate-50 border-slate-200' 
                                             : 'bg-white border-slate-200'
                                         }`}
                                       >
-                                        <div className="flex items-center justify-between mb-1">
+                                        {/* Badge */}
+                                        <div className="flex items-center justify-between mb-3">
                                           <span className={`text-xs px-2 py-0.5 rounded ${
                                             ticket.ticketType === 'GENERAL'
                                               ? 'bg-blue-100 text-blue-600'
@@ -480,20 +481,38 @@ export default function TicketsAdmin() {
                                             {ticket.isUsed ? '入場済' : '未使用'}
                                           </span>
                                         </div>
-                                        <p className="text-xs font-mono text-slate-600 truncate">
+
+                                        {/* QR Code */}
+                                        <div className="bg-slate-50 rounded p-2 mb-3 flex items-center justify-center">
+                                          <img
+                                            src={`/api/qrcode/ticket/${ticket.ticketCode}`}
+                                            alt="QRコード"
+                                            className="w-32 h-32"
+                                            onError={(e) => {
+                                              e.currentTarget.style.display = 'none';
+                                            }}
+                                          />
+                                        </div>
+
+                                        {/* Ticket Code */}
+                                        <p className="text-xs font-mono text-slate-600 break-all mb-2">
                                           {ticket.ticketCode}
                                         </p>
-                                        {ticket.isExchanged && (
-                                          <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
-                                            <Gift size={10} />
-                                            引換券使用
-                                          </p>
-                                        )}
-                                        {ticket.isUsed && ticket.usedAt && (
-                                          <p className="text-xs text-slate-400 mt-1">
-                                            {formatShortDate(ticket.usedAt)}
-                                          </p>
-                                        )}
+
+                                        {/* Meta Info */}
+                                        <div className="space-y-1">
+                                          {ticket.isExchanged && (
+                                            <p className="text-xs text-amber-600 flex items-center gap-1">
+                                              <Gift size={10} />
+                                              引換券使用
+                                            </p>
+                                          )}
+                                          {ticket.isUsed && ticket.usedAt && (
+                                            <p className="text-xs text-slate-400">
+                                              入場: {formatShortDate(ticket.usedAt)}
+                                            </p>
+                                          )}
+                                        </div>
                                       </div>
                                     ))}
                                   </div>
