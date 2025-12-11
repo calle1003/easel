@@ -44,7 +44,7 @@ import Dashboard from './pages/admin/Dashboard';
 import NewsAdmin from './pages/admin/NewsAdmin';
 import PerformancesAdmin from './pages/admin/PerformancesAdmin';
 import ExchangeCodesAdmin from './pages/admin/ExchangeCodesAdmin';
-import OrdersAdmin from './pages/admin/OrdersAdmin';
+import TicketsAdmin from './pages/admin/TicketsAdmin';
 
 function App() {
   return (
@@ -93,7 +93,7 @@ function App() {
         <Route path="/admin/news" element={<AdminLayout><NewsAdmin /></AdminLayout>} />
         <Route path="/admin/performances" element={<AdminLayout><PerformancesAdmin /></AdminLayout>} />
         <Route path="/admin/exchange-codes" element={<AdminLayout><ExchangeCodesAdmin /></AdminLayout>} />
-        <Route path="/admin/orders" element={<AdminLayout><OrdersAdmin /></AdminLayout>} />
+        <Route path="/admin/tickets" element={<AdminLayout><TicketsAdmin /></AdminLayout>} />
       </Routes>
     </BrowserRouter>
   );

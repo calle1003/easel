@@ -58,10 +58,10 @@ export default function Dashboard() {
       color: 'bg-green-500',
     },
     {
-      title: '注文管理',
-      description: '注文一覧・ステータス管理',
-      icon: ShoppingCart,
-      path: '/admin/orders',
+      title: 'チケット管理',
+      description: '発行済みチケットの確認',
+      icon: Ticket,
+      path: '/admin/tickets',
       color: 'bg-orange-500',
     },
   ];
